@@ -34,7 +34,9 @@ void setup() {
 
   // Initialize LCD
   lcd.begin(16, 2);  
-  lcd.print("Guitar Tuner");
+  lcd.print("Guitar Tuner By:");
+  lcd.setCursor(1,0);
+  lcd.print("Jaymes Goddard");
 
   // Button & Servo Setup
   pinMode(BUTTON_PIN, INPUT);
