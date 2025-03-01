@@ -5,7 +5,7 @@
 #define SAMPLES 128
 #define SAMPLING_FREQUENCY 2048
 #define lpt 1000;
-#define INPUT_PIN A0
+#define INPUT_PIN A5
 
 double vReal[SAMPLES]; // Real values array
 double vImag[SAMPLES]; // Imaginary values array
@@ -60,6 +60,7 @@ void loop() {
     stringIndex = (stringIndex + 1) % 6;
     displayTuning();
   }
+  Serial.print(result);
   // Run the tuning logic
   double peak = getPeakFrequency();
   tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
