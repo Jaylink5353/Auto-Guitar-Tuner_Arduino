@@ -4,6 +4,7 @@
 
 #define SAMPLES 128
 #define SAMPLING_FREQUENCY 2048
+#define lpt 1000;
 
 double vReal[SAMPLES]; // Real values array
 double vImag[SAMPLES]; // Imaginary values array
@@ -60,8 +61,7 @@ void loop() {
 
   if (buttonState == HIGH && lastButtonState == LOW) {  // Button just released
     unsigned long pressDuration = millis() - buttonPressTime;
-    
-    if (pressDuration >= LONG_PRESS_TIME) {
+    if (pressDuration >= 1000) {
       // Long press: Change tuning
       tuningIndex = (tuningIndex + 1) % 3;  
       Serial.println("Tuning Changed: " + String(tuningNames[tuningIndex]));
@@ -79,11 +79,7 @@ void loop() {
   // Run the tuning logic
   double peak = getPeakFrequency();
   tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
-
-  double peak = getPeakFrequency();
-  tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
 }
-
 // FFT Processing to Get Peak Frequency
 double getPeakFrequency() {
   for (int i = 0; i < SAMPLES; i++) {
