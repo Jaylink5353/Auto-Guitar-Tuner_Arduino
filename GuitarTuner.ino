@@ -5,6 +5,7 @@
 #define SAMPLES 128
 #define SAMPLING_FREQUENCY 2048
 #define lpt 1000;
+#define INPUT_PIN A0
 
 double vReal[SAMPLES]; // Real values array
 double vImag[SAMPLES]; // Imaginary values array
@@ -14,8 +15,6 @@ ArduinoFFT<double> FFT(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY);
 // LCD Setup: (RS, E, D4, D5, D6, D7)
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
-// Button & Servo
-#define BUTTON_PIN 6
 Servo servo;
 
 // Guitar Tunings
@@ -40,7 +39,7 @@ void setup() {
   lcd.print("Jaymes Goddard");
 
   // Button & Servo Setup
-  pinMode(BUTTON_PIN, INPUT);
+  pinMode(INPUT_PIN, INPUT);
   servo.attach(3);
   
   samplingPeriod = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
@@ -50,32 +49,17 @@ void setup() {
 }
 
 void loop() {
-  static bool lastButtonState = HIGH;
-  static unsigned long buttonPressTime = 0;
-  
-  bool buttonState = digitalRead(BUTTON_PIN);
-
-  if (buttonState == LOW && lastButtonState == HIGH) {  // Button just pressed
-    buttonPressTime = millis();  // Record press time
+  int result = readAnalogButton();
+  if (result == 1){
+    //tuningbutton
+    tuningIndex = (tuningIndex + 1) % 3; 
+    displayTuning();
   }
-
-  if (buttonState == HIGH && lastButtonState == LOW) {  // Button just released
-    unsigned long pressDuration = millis() - buttonPressTime;
-    if (pressDuration >= 1000) {
-      // Long press: Change tuning
-      tuningIndex = (tuningIndex + 1) % 3;  
-      Serial.println("Tuning Changed: " + String(tuningNames[tuningIndex]));
-    } else {
-      // Short press: Change string
-      stringIndex = (stringIndex + 1) % 6;
-      Serial.println("String Changed: " + String(stringIndex));
-    }
-
-    displayTuning();  // Update screen
+  if (result == 2){
+    //string button
+    stringIndex = (stringIndex + 1) % 6;
+    displayTuning();
   }
-
-  lastButtonState = buttonState;
-
   // Run the tuning logic
   double peak = getPeakFrequency();
   tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
@@ -133,4 +117,11 @@ void displayDone() {
   lcd.print("IN TUNE!");
   delay(1000);
   displayTuning();
+}
+// Read Buttons
+int readAnalogButton() {
+  int button = analogRead(INPUT_PIN);
+  if (button > 921) return 0;
+  if (button < 256) return 1;
+  if (button < 598) return 2;
 }
