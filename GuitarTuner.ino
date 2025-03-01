@@ -47,12 +47,36 @@ void setup() {
 }
 
 void loop() {
-  if (digitalRead(BUTTON_PIN) == HIGH) {
-    delay(200);
-    stringIndex = (stringIndex + 1) % 6;
-    displayTuning();
-    while (digitalRead(BUTTON_PIN) == HIGH);
+  static bool lastButtonState = HIGH;
+  static unsigned long buttonPressTime = 0;
+  
+  bool buttonState = digitalRead(BUTTON_PIN);
+
+  if (buttonState == LOW && lastButtonState == HIGH) {  // Button just pressed
+    buttonPressTime = millis();  // Record press time
   }
+
+  if (buttonState == HIGH && lastButtonState == LOW) {  // Button just released
+    unsigned long pressDuration = millis() - buttonPressTime;
+    
+    if (pressDuration >= LONG_PRESS_TIME) {
+      // Long press: Change tuning
+      tuningIndex = (tuningIndex + 1) % 3;  
+      Serial.println("Tuning Changed: " + String(tuningNames[tuningIndex]));
+    } else {
+      // Short press: Change string
+      stringIndex = (stringIndex + 1) % 6;
+      Serial.println("String Changed: " + String(stringIndex));
+    }
+
+    displayTuning();  // Update screen
+  }
+
+  lastButtonState = buttonState;
+
+  // Run the tuning logic
+  double peak = getPeakFrequency();
+  tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
 
   double peak = getPeakFrequency();
   tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
