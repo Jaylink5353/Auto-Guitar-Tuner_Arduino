@@ -7,10 +7,10 @@
 #define lpt 1000;
 #define INPUT_PIN A5
 
-double vReal[SAMPLES]; // Real values array
-double vImag[SAMPLES]; // Imaginary values array
+float vReal[SAMPLES]; // Real values array
+float vImag[SAMPLES]; // Imaginary values array
 
-ArduinoFFT<double> FFT(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY);
+ArduinoFFT<float> FFT = ArduinoFFT<float>(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY);
 
 // LCD Setup: (RS, E, D4, D5, D6, D7)
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
@@ -63,6 +63,7 @@ void loop() {
   Serial.print(result);
   // Run the tuning logic
   double peak = getPeakFrequency();
+  Serial.print(peak);
   tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
 }
 // FFT Processing to Get Peak Frequency
@@ -72,12 +73,18 @@ double getPeakFrequency() {
     vReal[i] = analogRead(A0);
     vImag[i] = 0;
     while (micros() < (microSeconds + samplingPeriod));
+    Serial.print("for i");
+    Serial.print(availableMemory());
   }
   FFT.windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+  Serial.print("fft window");
   FFT.compute(vReal, vImag, SAMPLES, FFT_FORWARD);
+  Serial.print("compute done");
   FFT.complexToMagnitude(vReal, vImag, SAMPLES);
+  Serial.print("fft done");
 
   return FFT.majorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
+  Serial.print("Finished peakfrequency");
 }
 
 // Tuning Logic
@@ -125,4 +132,13 @@ int readAnalogButton() {
   if (button > 921) return 0;
   if (button < 256) return 1;
   if (button < 598) return 2;
+}
+
+int availableMemory() {
+    // Use 1024 with ATmega168
+    int size = 2048;
+    byte *buf;
+    while ((buf = (byte *) malloc(--size)) == NULL);
+        free(buf);
+    return size;
 }
