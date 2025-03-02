@@ -68,24 +68,37 @@ void loop() {
 }
 // FFT Processing to Get Peak Frequency
 double getPeakFrequency() {
+  Serial.println("Starting getPeakFrequency");
+  Serial.println(availableMemory());
   for (int i = 0; i < SAMPLES; i++) {
     int microSeconds = micros();
     vReal[i] = analogRead(A0);
-    vImag[i] = 0;
+    Serial.print("vReal[");
+    Serial.print(i);
+    Serial.print("]: ");
+    Serial.println(vReal[i]);
     while (micros() < (microSeconds + samplingPeriod));
-    Serial.print("for i");
-    Serial.print(availableMemory());
-  }
-  FFT.windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  Serial.print("fft window");
-  FFT.compute(vReal, vImag, SAMPLES, FFT_FORWARD);
-  Serial.print("compute done");
-  FFT.complexToMagnitude(vReal, vImag, SAMPLES);
-  Serial.print("fft done");
+  };
+  Serial.println("Finished for loop");
 
-  return FFT.majorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
-  Serial.print("Finished peakfrequency");
+  // Zero-Crossing Detection
+  int zeroCrossings = 0;
+  for (int i = 1; i < SAMPLES; i++) {
+    if ((vReal[i - 1] < 512 && vReal[i] >= 512) || (vReal[i - 1] >= 512 && vReal[i] < 512)) {
+      zeroCrossings++;
+    }
+  }
+  Serial.print("Zero crossings: ");
+  Serial.println(zeroCrossings);
+
+  double peakFrequency = (zeroCrossings / 2.0) * (SAMPLING_FREQUENCY / SAMPLES);
+  Serial.print("Peak frequency: ");
+  Serial.println(peakFrequency);
+
+  Serial.println("Finished getPeakFrequency");
+  return peakFrequency;
 }
+
 
 // Tuning Logic
 void tuneString(double peak, double targetFreq) {
