@@ -1,16 +1,11 @@
 #include <LiquidCrystal.h>
 #include <Servo.h>
-#include <arduinoFFT.h>
 
-#define SAMPLES 128
+#define SAMPLES 8  // Further reduce the number of samples
 #define SAMPLING_FREQUENCY 2048
-#define lpt 1000;
 #define INPUT_PIN A5
 
 float vReal[SAMPLES]; // Real values array
-float vImag[SAMPLES]; // Imaginary values array
-
-ArduinoFFT<float> FFT = ArduinoFFT<float>(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY);
 
 // LCD Setup: (RS, E, D4, D5, D6, D7)
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
@@ -66,19 +61,22 @@ void loop() {
   Serial.print(peak);
   tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
 }
-// FFT Processing to Get Peak Frequency
+
+// Zero-Crossing Detection to Get Peak Frequency
 double getPeakFrequency() {
   Serial.println("Starting getPeakFrequency");
+  Serial.print("Available memory before loop: ");
   Serial.println(availableMemory());
+
   for (int i = 0; i < SAMPLES; i++) {
-    int microSeconds = micros();
-    vReal[i] = analogRead(A0);
+    vReal[i] = 512 + 100 * sin(2 * PI * i / SAMPLES);  // Simulated sinusoidal data
     Serial.print("vReal[");
     Serial.print(i);
     Serial.print("]: ");
     Serial.println(vReal[i]);
-    while (micros() < (microSeconds + samplingPeriod));
-  };
+
+    delayMicroseconds(samplingPeriod);  // Simplified delay with delayMicroseconds
+  }
   Serial.println("Finished for loop");
 
   // Zero-Crossing Detection
@@ -98,7 +96,6 @@ double getPeakFrequency() {
   Serial.println("Finished getPeakFrequency");
   return peakFrequency;
 }
-
 
 // Tuning Logic
 void tuneString(double peak, double targetFreq) {
@@ -139,6 +136,7 @@ void displayDone() {
   delay(1000);
   displayTuning();
 }
+
 // Read Buttons
 int readAnalogButton() {
   int button = analogRead(INPUT_PIN);
