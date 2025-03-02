@@ -1,9 +1,10 @@
 #include <LiquidCrystal.h>
 #include <Servo.h>
 
-#define SAMPLES 8  // Further reduce the number of samples
+#define SAMPLES 128
 #define SAMPLING_FREQUENCY 2048
 #define INPUT_PIN A5
+#define BUTTON_PIN A0  // Use a separate analog pin for the button
 
 float vReal[SAMPLES]; // Real values array
 
@@ -44,22 +45,36 @@ void setup() {
 }
 
 void loop() {
+  static unsigned long lastSampleTime = 0;
+  static int sampleIndex = 0;
+
+  // Check buttons frequently
   int result = readAnalogButton();
-  if (result == 1){
-    //tuningbutton
+  if (result == 1) {
+    // Tuning button
     tuningIndex = (tuningIndex + 1) % 3; 
     displayTuning();
   }
-  if (result == 2){
-    //string button
+  if (result == 2) {
+    // String button
     stringIndex = (stringIndex + 1) % 6;
     displayTuning();
   }
-  Serial.print(result);
-  // Run the tuning logic
-  double peak = getPeakFrequency();
-  Serial.print(peak);
-  tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
+
+  // Sample data only if enough time has passed
+  unsigned long currentTime = micros();
+  if (currentTime - lastSampleTime >= samplingPeriod) {
+    vReal[sampleIndex] = analogRead(A0);
+    sampleIndex++;
+    lastSampleTime = currentTime;
+
+    if (sampleIndex >= SAMPLES) {
+      sampleIndex = 0;
+      double peak = getPeakFrequency();
+      Serial.print(peak);
+      tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
+    }
+  }
 }
 
 // Zero-Crossing Detection to Get Peak Frequency
@@ -67,17 +82,6 @@ double getPeakFrequency() {
   Serial.println("Starting getPeakFrequency");
   Serial.print("Available memory before loop: ");
   Serial.println(availableMemory());
-
-  for (int i = 0; i < SAMPLES; i++) {
-    vReal[i] = 512 + 100 * sin(2 * PI * i / SAMPLES);  // Simulated sinusoidal data
-    Serial.print("vReal[");
-    Serial.print(i);
-    Serial.print("]: ");
-    Serial.println(vReal[i]);
-
-    delayMicroseconds(samplingPeriod);  // Simplified delay with delayMicroseconds
-  }
-  Serial.println("Finished for loop");
 
   // Zero-Crossing Detection
   int zeroCrossings = 0;
