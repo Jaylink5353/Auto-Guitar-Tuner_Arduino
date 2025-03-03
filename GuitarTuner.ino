@@ -1,5 +1,5 @@
 #include <LiquidCrystal.h>
-#include <Servo.h>
+#include <Stepper.h>
 
 #define SAMPLES 128
 #define SAMPLING_FREQUENCY 2048
@@ -11,7 +11,9 @@ float vReal[SAMPLES]; // Real values array
 // LCD Setup: (RS, E, D4, D5, D6, D7)
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
-Servo servo;
+// Stepper motor setup
+const int stepsPerRevolution = 2048;  // Change this value to match your stepper motor
+Stepper stepper(stepsPerRevolution, 2, 3, 4, 5);  // Pins connected to the stepper motor
 
 // Guitar Tunings
 const char tuningNames[][17] = {"Standard", "Half-Step Down", "Drop D"};
@@ -34,9 +36,9 @@ void setup() {
   lcd.setCursor(1,0);
   lcd.print("Jaymes Goddard");
 
-  // Button & Servo Setup
+  // Button & Stepper Setup
   pinMode(INPUT_PIN, INPUT);
-  servo.attach(3);
+  stepper.setSpeed(15);  // Set the speed of the stepper motor
   
   samplingPeriod = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
 
@@ -105,15 +107,11 @@ double getPeakFrequency() {
 void tuneString(double peak, double targetFreq) {
   double tolerance = 2.0;
   if (analogRead(A0) < 805) { 
-    servo.write(90);  
+    stepper.step(0);  
   } else if (peak < targetFreq - tolerance) {
-    servo.write(60);  
-    delay(700);
-    servo.write(90);
+    stepper.step(stepsPerRevolution);  // Adjust the steps as needed
   } else if (peak > targetFreq + tolerance) {
-    servo.write(120);
-    delay(700);
-    servo.write(90);
+    stepper.step(-stepsPerRevolution);  // Adjust the steps as needed
   } else {
     displayDone();
   }
