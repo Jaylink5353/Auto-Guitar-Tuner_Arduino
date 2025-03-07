@@ -29,19 +29,18 @@ int samplingPeriod;
 
 void setup() {
   Serial.begin(9600);
+  Serial.print("starting:...");
 
   // Initialize LCD
   lcd.begin(16, 2);  
   lcd.print("Guitar Tuner By:");
   lcd.setCursor(1,0);
   lcd.print("Jaymes Goddard");
+  Serial.println("lcd done");
 
   // Button & Stepper Setup
   pinMode(INPUT_PIN, INPUT);
   stepper.setSpeed(15);  // Set the speed of the stepper motor
-  
-  samplingPeriod = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
-
   delay(1500);
   displayTuning();
 }
@@ -62,8 +61,7 @@ void loop() {
     stringIndex = (stringIndex + 1) % 6;
     displayTuning();
   }
-
-  // Sample data only if enough time has passed
+  Serial.print(result);
   unsigned long currentTime = micros();
   if (currentTime - lastSampleTime >= samplingPeriod) {
     vReal[sampleIndex] = analogRead(A0);
