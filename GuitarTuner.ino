@@ -1,19 +1,20 @@
 #include <LiquidCrystal.h>
-#include <Stepper.h>
+#include <Servo.h>
+#include <arduinoFFT.h>
 
 #define SAMPLES 128
 #define SAMPLING_FREQUENCY 2048
 #define INPUT_PIN A5
-#define BUTTON_PIN A0  // Use a separate analog pin for the button
 
 float vReal[SAMPLES]; // Real values array
+float vImag[SAMPLES]; // Imaginary values array
+
+ArduinoFFT<float> FFT = ArduinoFFT<float>();  // Correctly initialize FFT object
 
 // LCD Setup: (RS, E, D4, D5, D6, D7)
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
-// Stepper motor setup
-const int stepsPerRevolution = 2048;  // Change this value to match your stepper motor
-Stepper stepper(stepsPerRevolution, 2, 3, 4, 5);  // Pins connected to the stepper motor
+Servo servo;
 
 // Guitar Tunings
 const char tuningNames[][17] = {"Standard", "Half-Step Down", "Drop D"};
@@ -29,27 +30,24 @@ int samplingPeriod;
 
 void setup() {
   Serial.begin(9600);
-  Serial.print("starting:...");
 
   // Initialize LCD
   lcd.begin(16, 2);  
   lcd.print("Guitar Tuner By:");
   lcd.setCursor(1,0);
   lcd.print("Jaymes Goddard");
-  Serial.println("lcd done");
 
-  // Button & Stepper Setup
+  // Button & Servo Setup
   pinMode(INPUT_PIN, INPUT);
-  stepper.setSpeed(15);  // Set the speed of the stepper motor
+  servo.attach(3);
+  
+  samplingPeriod = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
+
   delay(1500);
   displayTuning();
 }
 
 void loop() {
-  static unsigned long lastSampleTime = 0;
-  static int sampleIndex = 0;
-
-  // Check buttons frequently
   int result = readAnalogButton();
   if (result == 1) {
     // Tuning button
@@ -62,38 +60,38 @@ void loop() {
     displayTuning();
   }
   Serial.print(result);
-  unsigned long currentTime = micros();
-  if (currentTime - lastSampleTime >= samplingPeriod) {
-    vReal[sampleIndex] = analogRead(A0);
-    sampleIndex++;
-    lastSampleTime = currentTime;
-
-    if (sampleIndex >= SAMPLES) {
-      sampleIndex = 0;
-      double peak = getPeakFrequency();
-      Serial.print(peak);
-      tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
-    }
-  }
+  // Run the tuning logic
+  double peak = getPeakFrequency();
+  Serial.print(peak);
+  tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
 }
 
-// Zero-Crossing Detection to Get Peak Frequency
+// FFT Processing to Get Peak Frequency
 double getPeakFrequency() {
   Serial.println("Starting getPeakFrequency");
   Serial.print("Available memory before loop: ");
   Serial.println(availableMemory());
 
-  // Zero-Crossing Detection
-  int zeroCrossings = 0;
-  for (int i = 1; i < SAMPLES; i++) {
-    if ((vReal[i - 1] < 512 && vReal[i] >= 512) || (vReal[i - 1] >= 512 && vReal[i] < 512)) {
-      zeroCrossings++;
-    }
-  }
-  Serial.print("Zero crossings: ");
-  Serial.println(zeroCrossings);
+  for (int i = 0; i < SAMPLES; i++) {
+    vReal[i] = analogRead(A0);
+    vImag[i] = 0;
+    Serial.print("vReal[");
+    Serial.print(i);
+    Serial.print("]: ");
+    Serial.println(vReal[i]);
 
-  double peakFrequency = (zeroCrossings / 2.0) * (SAMPLING_FREQUENCY / SAMPLES);
+    delayMicroseconds(samplingPeriod);  // Simplified delay with delayMicroseconds
+  }
+  Serial.println("Finished for loop");
+
+  FFT.windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+  Serial.print("fft window");
+  FFT.compute(vReal, vImag, SAMPLES, FFT_FORWARD);
+  Serial.print("compute done");
+  FFT.complexToMagnitude(vReal, vImag, SAMPLES);
+  Serial.print("fft done");
+
+  double peakFrequency = FFT.majorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
   Serial.print("Peak frequency: ");
   Serial.println(peakFrequency);
 
@@ -105,11 +103,15 @@ double getPeakFrequency() {
 void tuneString(double peak, double targetFreq) {
   double tolerance = 2.0;
   if (analogRead(A0) < 805) { 
-    stepper.step(0);  
+    servo.write(90);  
   } else if (peak < targetFreq - tolerance) {
-    stepper.step(stepsPerRevolution);  // Adjust the steps as needed
+    servo.write(60);  
+    delay(700);
+    servo.write(90);
   } else if (peak > targetFreq + tolerance) {
-    stepper.step(-stepsPerRevolution);  // Adjust the steps as needed
+    servo.write(120);
+    delay(700);
+    servo.write(90);
   } else {
     displayDone();
   }
