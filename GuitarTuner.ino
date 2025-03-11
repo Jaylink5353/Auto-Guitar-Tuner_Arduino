@@ -5,6 +5,7 @@
 #define SAMPLES 128
 #define SAMPLING_FREQUENCY 2048
 #define INPUT_PIN A5
+#define TUNEVAR -5
 
 double vReal[SAMPLES]; // Real values array
 double vImag[SAMPLES]; // Imaginary values array
@@ -19,7 +20,7 @@ Servo servo;
 // Guitar Tunings
 const char tuningNames[][17] = {"Standard", "Half-Step Down", "Drop D"};
 const double tuningFrequencies[][6] = {
-  {82.41, 110.00, 146.83, 196.00, 246.94, 329.63},  // Standard E
+  {82, 110.00, 146.83, 196.00, 246.94, 329.63},  // Standard E
   {77.78, 103.83, 138.59, 185.00, 233.08, 311.13},  // Half-Step Down
   {82.41, 110.00, 146.83, 196.00, 246.94, 329.63}   // Drop D (Low E → D)
 };
@@ -88,7 +89,7 @@ double getPeakFrequency() {
   FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
 
   /*Find peak frequency and print peak*/
-  double peakF = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);  // peak is the most dominant frequency heard
+  double peakF = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY)+TUNEVAR;  // peak is the most dominant frequency heard
   Serial.print("     Peak frequency:    ");
   Serial.println(peakF);
   return peakF;
