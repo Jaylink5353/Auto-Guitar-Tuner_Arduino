@@ -6,10 +6,10 @@
 #define SAMPLING_FREQUENCY 2048
 #define INPUT_PIN A5
 
-float vReal[SAMPLES]; // Real values array
-float vImag[SAMPLES]; // Imaginary values array
+double vReal[SAMPLES]; // Real values array
+double vImag[SAMPLES]; // Imaginary values array
 
-ArduinoFFT<float> FFT = ArduinoFFT<float>();  // Correctly initialize FFT object
+arduinoFFT FFT = arduinoFFT();  // Correctly initialize FFT object
 
 // LCD Setup: (RS, E, D4, D5, D6, D7)
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
@@ -39,6 +39,7 @@ void setup() {
 
   // Button & Servo Setup
   pinMode(INPUT_PIN, INPUT);
+  pinMode(A0, INPUT);
   servo.attach(3);
   
   samplingPeriod = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
@@ -68,35 +69,29 @@ void loop() {
 
 // FFT Processing to Get Peak Frequency
 double getPeakFrequency() {
-  Serial.println("Starting getPeakFrequency");
-  Serial.print("Available memory before loop: ");
-  Serial.println(availableMemory());
+    for(int i=0; i<SAMPLES; i++){
+    float microSeconds = micros();    //Returns the number of microseconds since the Arduino board began running the current script. 
 
-  for (int i = 0; i < SAMPLES; i++) {
-    vReal[i] = analogRead(A0);
-    vImag[i] = 0;
-    Serial.print("vReal[");
-    Serial.print(i);
-    Serial.print("]: ");
-    Serial.println(vReal[i]);
+    vReal[i] = analogRead(0); //Reads the value from analog pin 0 (the sound sensor's analog output), quantize it and save it as a real term.
+    vImag[i] = 0; //Makes imaginary term 0 always
 
-    delayMicroseconds(samplingPeriod);  // Simplified delay with delayMicroseconds
+    /*remaining wait time between samples if necessary*/
+    while(micros() < (microSeconds + samplingPeriod))
+    {
+      //do nothing
+    }
   }
-  Serial.println("Finished for loop");
 
-  FFT.windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  Serial.print("fft window");
-  FFT.compute(vReal, vImag, SAMPLES, FFT_FORWARD);
-  Serial.print("compute done");
-  FFT.complexToMagnitude(vReal, vImag, SAMPLES);
-  Serial.print("fft done");
+  /*Perform FFT on samples*/
+  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+  FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
+  FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
 
-  double peakFrequency = FFT.majorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
-  Serial.print("Peak frequency: ");
-  Serial.println(peakFrequency);
-
-  Serial.println("Finished getPeakFrequency");
-  return peakFrequency;
+  /*Find peak frequency and print peak*/
+  double peakF = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);  // peak is the most dominant frequency heard
+  Serial.print("     Peak frequency:    ");
+  Serial.println(peakF);
+  return peakF;
 }
 
 // Tuning Logic
