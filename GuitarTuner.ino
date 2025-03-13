@@ -1,11 +1,13 @@
 #include <LiquidCrystal.h>
-#include <Servo.h>
+#include <Stepper.h>
 #include <arduinoFFT.h>
 
 #define SAMPLES 128
 #define SAMPLING_FREQUENCY 2048
 #define INPUT_PIN A5
 #define TUNEVAR -5
+
+#define STEPS_PER_REV 2048
 
 double vReal[SAMPLES]; // Real values array
 double vImag[SAMPLES]; // Imaginary values array
@@ -15,7 +17,8 @@ arduinoFFT FFT = arduinoFFT();  // Correctly initialize FFT object
 // LCD Setup: (RS, E, D4, D5, D6, D7)
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
-Servo servo;
+// Stepper Motor Setup         1N4,1N2,1N3,1N1
+Stepper stepper(STEPS_PER_REV, 2, 3, 4, 5); 
 
 // Guitar Tunings
 const char tuningNames[][17] = {"Standard", "Half-Step Down", "Drop D"};
@@ -35,18 +38,21 @@ void setup() {
   // Initialize LCD
   lcd.begin(16, 2);  
   lcd.print("Guitar Tuner By:");
-  lcd.setCursor(1,0);
+  lcd.setCursor(1, 0);
   lcd.print("Jaymes Goddard");
 
-  // Button & Servo Setup
+  // Button & Stepper Setup
   pinMode(INPUT_PIN, INPUT);
   pinMode(A0, INPUT);
-  servo.attach(3);
+  
+  // Initialize stepper motor
+  stepper.setSpeed(15);  // Set stepper motor speed
   
   samplingPeriod = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
 
   delay(1500);
   displayTuning();
+  stepper.step(300);
 }
 
 void loop() {
@@ -70,7 +76,7 @@ void loop() {
 
 // FFT Processing to Get Peak Frequency
 double getPeakFrequency() {
-    for(int i=0; i<SAMPLES; i++){
+    for(int i = 0; i < SAMPLES; i++){
     float microSeconds = micros();    //Returns the number of microseconds since the Arduino board began running the current script. 
 
     vReal[i] = analogRead(0); //Reads the value from analog pin 0 (the sound sensor's analog output), quantize it and save it as a real term.
@@ -89,7 +95,7 @@ double getPeakFrequency() {
   FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
 
   /*Find peak frequency and print peak*/
-  double peakF = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY)+TUNEVAR;  // peak is the most dominant frequency heard
+  double peakF = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY) + TUNEVAR;  // peak is the most dominant frequency heard
   Serial.print("     Peak frequency:    ");
   Serial.println(peakF);
   return peakF;
@@ -99,15 +105,15 @@ double getPeakFrequency() {
 void tuneString(double peak, double targetFreq) {
   double tolerance = 2.0;
   if (analogRead(A0) < 805) { 
-    servo.write(90);  
+    stepper.step(0);  
   } else if (peak < targetFreq - tolerance) {
-    servo.write(60);  
+    stepper.step(50);  
     delay(700);
-    servo.write(90);
+    stepper.step(-50);
   } else if (peak > targetFreq + tolerance) {
-    servo.write(120);
+    stepper.step(-50);
     delay(700);
-    servo.write(90);
+    stepper.step(50);
   } else {
     displayDone();
   }
