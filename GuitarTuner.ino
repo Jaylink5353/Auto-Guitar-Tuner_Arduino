@@ -104,8 +104,6 @@ double getPeakFrequency() {
 // Tuning Logic
 void tuneString(double peak, double targetFreq) {
   double tolerance = 2.0;
-  if (analogRead(A0) < 805) { 
-    stepper.step(0);  
   } else if (peak < targetFreq - tolerance) {
     stepper.step(50);  
     delay(700);
