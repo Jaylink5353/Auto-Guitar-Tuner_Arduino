@@ -1,29 +1,21 @@
 #include <LiquidCrystal.h>
-#include <Stepper.h>
-#include <arduinoFFT.h>
+#include <Servo.h>
 
-#define SAMPLES 128
+#define SAMPLES 128  // Restore the original number of samples
 #define SAMPLING_FREQUENCY 2048
 #define INPUT_PIN A5
-#define TUNEVAR -5
 
-#define STEPS_PER_REV 2048
-
-double vReal[SAMPLES]; // Real values array
-double vImag[SAMPLES]; // Imaginary values array
-
-arduinoFFT FFT = arduinoFFT();  // Correctly initialize FFT object
+float vReal[SAMPLES]; // Real values array
 
 // LCD Setup: (RS, E, D4, D5, D6, D7)
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
-// Stepper Motor Setup         1N4,1N2,1N3,1N1
-Stepper stepper(STEPS_PER_REV, 3, 4, 5, 6); 
+Servo servo;
 
 // Guitar Tunings
 const char tuningNames[][17] = {"Standard", "Half-Step Down", "Drop D"};
 const double tuningFrequencies[][6] = {
-  {82, 110.00, 146.83, 196.00, 246.94, 329.63},  // Standard E
+  {82.41, 110.00, 146.83, 196.00, 246.94, 329.63},  // Standard E
   {77.78, 103.83, 138.59, 185.00, 233.08, 311.13},  // Half-Step Down
   {82.41, 110.00, 146.83, 196.00, 246.94, 329.63}   // Drop D (Low E → D)
 };
@@ -38,32 +30,28 @@ void setup() {
   // Initialize LCD
   lcd.begin(16, 2);  
   lcd.print("Guitar Tuner By:");
-  lcd.setCursor(1, 0);
+  lcd.setCursor(1,0);
   lcd.print("Jaymes Goddard");
 
-  // Button & Stepper Setup
+  // Button & Servo Setup
   pinMode(INPUT_PIN, INPUT);
-  pinMode(A0, INPUT);
-  
-  // Initialize stepper motor
-  stepper.setSpeed(15);  // Set stepper motor speed
+  servo.attach(3);
   
   samplingPeriod = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
 
   delay(1500);
   displayTuning();
-  stepper.step(300);
 }
 
 void loop() {
   int result = readAnalogButton();
-  if (result == 1) {
-    // Tuning button
+  if (result == 1){
+    //tuningbutton
     tuningIndex = (tuningIndex + 1) % 3; 
     displayTuning();
   }
-  if (result == 2) {
-    // String button
+  if (result == 2){
+    //string button
     stringIndex = (stringIndex + 1) % 6;
     displayTuning();
   }
@@ -74,44 +62,54 @@ void loop() {
   tuneString(peak, tuningFrequencies[tuningIndex][stringIndex]);
 }
 
-// FFT Processing to Get Peak Frequency
+// Zero-Crossing Detection to Get Peak Frequency
 double getPeakFrequency() {
-    for(int i = 0; i < SAMPLES; i++){
-    float microSeconds = micros();    //Returns the number of microseconds since the Arduino board began running the current script. 
+  Serial.println("Starting getPeakFrequency");
+  Serial.print("Available memory before loop: ");
+  Serial.println(availableMemory());
 
-    vReal[i] = analogRead(0); //Reads the value from analog pin 0 (the sound sensor's analog output), quantize it and save it as a real term.
-    vImag[i] = 0; //Makes imaginary term 0 always
+  for (int i = 0; i < SAMPLES; i++) {
+    vReal[i] = analogRead(A0);
+    Serial.print("vReal[");
+    Serial.print(i);
+    Serial.print("]: ");
+    Serial.println(vReal[i]);
 
-    /*remaining wait time between samples if necessary*/
-    while(micros() < (microSeconds + samplingPeriod))
-    {
-      //do nothing
+    delayMicroseconds(samplingPeriod);  // Simplified delay with delayMicroseconds
+  }
+  Serial.println("Finished for loop");
+
+  // Zero-Crossing Detection
+  int zeroCrossings = 0;
+  for (int i = 1; i < SAMPLES; i++) {
+    if ((vReal[i - 1] < 512 && vReal[i] >= 512) || (vReal[i - 1] >= 512 && vReal[i] < 512)) {
+      zeroCrossings++;
     }
   }
+  Serial.print("Zero crossings: ");
+  Serial.println(zeroCrossings);
 
-  /*Perform FFT on samples*/
-  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
-  FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
+  double peakFrequency = (zeroCrossings / 2.0) * (SAMPLING_FREQUENCY / SAMPLES);
+  Serial.print("Peak frequency: ");
+  Serial.println(peakFrequency);
 
-  /*Find peak frequency and print peak*/
-  double peakF = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY) + TUNEVAR;  // peak is the most dominant frequency heard
-  Serial.print("     Peak frequency:    ");
-  Serial.println(peakF);
-  return peakF;
+  Serial.println("Finished getPeakFrequency");
+  return peakFrequency;
 }
 
 // Tuning Logic
 void tuneString(double peak, double targetFreq) {
   double tolerance = 2.0;
-  if (peak < targetFreq - tolerance) {
-    stepper.step(50);  
+  if (analogRead(A0) < 805) { 
+    servo.write(90);  
+  } else if (peak < targetFreq - tolerance) {
+    servo.write(60);  
     delay(700);
-    stepper.step(-50);
+    servo.write(90);
   } else if (peak > targetFreq + tolerance) {
-    stepper.step(-50);
+    servo.write(120);
     delay(700);
-    stepper.step(50);
+    servo.write(90);
   } else {
     displayDone();
   }
@@ -155,3 +153,4 @@ int availableMemory() {
         free(buf);
     return size;
 }
+
